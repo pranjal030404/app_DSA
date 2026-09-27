@@ -1,0 +1,39 @@
+name: dsa_mentor
+description: DSA Mentor — deliberate practice for data structures and algorithms (Android client).
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # REST client for the Node backend (backend_DSA, default :5000)
+  http: ^1.2.0
+  # Minimal state management — no codegen, no build_runner
+  provider: ^6.1.2
+  # Fraunces / Inter / JetBrains Mono, matching the web brand
+  google_fonts: ^6.2.1
+  # Stores the JWT access token + refresh cookie in the Android Keystore
+  flutter_secure_storage: ^9.2.2
+  # Picking a PDF for the Settings → Resume upload
+  file_picker: ^8.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  # Generates mipmap + adaptive launcher icons from a single source image —
+  # see "Change the app icon" in README.md.
+  flutter_launcher_icons: ^0.14.2
+
+flutter:
+  uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#E9C88C"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  min_sdk_android: 21
