@@ -19,6 +19,13 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   # Picking a PDF for the Settings → Resume upload
   file_picker: ^8.1.2
+  # Renders the live web app in-app — the app IS the website, so web
+  # updates (theme, icons, problems, everything) show up with no rebuild.
+  webview_flutter: ^4.9.0
+  # Android-specific WebView controls (file-chooser hook for uploads).
+  webview_flutter_android: ^4.0.0
+  # Android system "share"/"open externally" for mailto:/tel:/external links
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
