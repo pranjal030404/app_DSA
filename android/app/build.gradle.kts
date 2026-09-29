@@ -5,6 +5,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase (phone verification at signup) is configured by google-services.json
+// from the Firebase console. Without it the app still builds and runs; only
+// phone verification reports that it isn't set up.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.arthvex.dsa_mentor"
     compileSdk = flutter.compileSdkVersion

@@ -11,6 +11,32 @@ class AuthService {
     return _parseUser(data);
   }
 
+  /// POST /auth/request-otp — returns `true` when the backend actually sent
+  /// a code, `false` when email verification is switched off (`skipped`).
+  Future<bool> requestSignupOtp(String email, String username) async {
+    final decoded = await _api.post('/auth/request-otp', body: {'email': email, 'username': username});
+    _api.unwrap(decoded);
+    return !(decoded is Map && decoded['skipped'] == true);
+  }
+
+  /// POST /auth/register → persists tokens, returns the new user.
+  Future<User> register(
+    String username,
+    String email,
+    String password, {
+    String? otp,
+    String? firebaseIdToken,
+  }) async {
+    final data = await _api.register(
+      username.trim(),
+      email.trim(),
+      password,
+      otp: otp,
+      firebaseIdToken: firebaseIdToken,
+    );
+    return _parseUser(data);
+  }
+
   /// GET /auth/profile — used on cold start to restore the session.
   Future<User> profile() async {
     final decoded = await _api.get('/auth/profile');
@@ -130,8 +156,16 @@ class ProblemService {
   }
 
   /// GET /problems/:slug (auth).
+  /// Falls back to GET /problems/public/:slug when signed out, so problems
+  /// opened from the landing page can still be read.
   Future<ProblemDetail> bySlug(String slug) async {
-    final decoded = await _api.get('/problems/$slug');
+    dynamic decoded;
+    try {
+      decoded = await _api.get('/problems/$slug');
+    } on ApiException catch (e) {
+      if (!e.isAuthError) rethrow;
+      decoded = await _api.get('/problems/public/$slug');
+    }
     final data = _api.unwrap(decoded);
     final m = data is Map
         ? (data['problem'] is Map ? data['problem'] : data)

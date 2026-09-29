@@ -177,11 +177,10 @@ class _OutputCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final ok = result.verdict == null || result.exitCode == null || result.exitCode == 0;
     final color = ok
-        ? (isDark ? EmberColors.easy : EmberColors.easyLight)
-        : (isDark ? EmberColors.hard : EmberColors.hardLight);
+        ? (AppPalette.of(context).easy)
+        : (AppPalette.of(context).hard);
     final mono = GoogleFonts.jetBrainsMonoTextTheme().bodySmall;
 
     return Card(

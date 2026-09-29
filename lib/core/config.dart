@@ -26,13 +26,3 @@ const String kApiBaseUrl = String.fromEnvironment(
 
 /// Seconds before an HTTP call gives up.
 const Duration kHttpTimeout = Duration(seconds: 20);
-
-/// The live web app the Android client renders. The app is a thin WebView
-/// shell around this URL, so any change shipped to the website — theme,
-/// icons, new problems, new pages — shows up in the app immediately with
-/// no rebuild. Override per-build with
-/// `flutter run --dart-define=WEB_URL=https://staging.example.com`.
-const String kWebUrl = String.fromEnvironment(
-  'WEB_URL',
-  defaultValue: 'https://dsa.arthvex.co.in/',
-);

@@ -27,7 +27,7 @@ void main() {
           Provider<ApiClient>.value(value: api),
           Provider<TokenStore>.value(value: tokens),
           ChangeNotifierProvider(create: (_) => AuthController(api, tokens)),
-          ChangeNotifierProvider(create: (_) => ThemeController(tokens)),
+          ChangeNotifierProvider(create: (_) => ThemeController(tokens, api)),
           Provider<AuthService>(create: (_) => AuthService(api)),
           Provider<ProblemService>(create: (_) => ProblemService(api)),
           Provider<MentorService>(create: (_) => MentorService(api)),

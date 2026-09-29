@@ -231,7 +231,7 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               Text(roadmap.title,
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500)),
+                  style: theme.textTheme.headlineSmall),
               if (roadmap.goal != null && roadmap.goal != roadmap.title) ...[
                 const SizedBox(height: 6),
                 Text(roadmap.goal!,
@@ -258,7 +258,6 @@ class _PhaseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -287,7 +286,7 @@ class _PhaseCard extends StatelessWidget {
                           ?.copyWith(fontWeight: FontWeight.w600)),
                 ),
                 if (phase.isDone)
-                  Icon(Icons.check_circle, size: 18, color: isDark ? EmberColors.easy : EmberColors.easyLight),
+                  Icon(Icons.check_circle, size: 18, color: AppPalette.of(context).easy),
               ],
             ),
             if (phase.description?.isNotEmpty == true) ...[

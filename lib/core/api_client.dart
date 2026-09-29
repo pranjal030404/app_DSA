@@ -35,6 +35,8 @@ class ApiClient {
   Future<Map<String, String>> _headers({bool json = true}) async {
     final token = await _tokens.readAccess();
     return {
+      // Lets the backend skip the web-only reCAPTCHA check at signup.
+      'X-Client-App': 'dsa-mentor-android',
       if (json) 'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
@@ -189,6 +191,31 @@ class ApiClient {
     final token = _extractToken(decoded);
     if (token == null || token.isEmpty) {
       throw ApiException('Login succeeded but no session token was returned.');
+    }
+    await _tokens.writeAccess(token);
+    return data;
+  }
+
+  /// POST /auth/register. Same envelope as login (user + accessToken, plus
+  /// the refresh cookie), so the new account is signed in straight away.
+  Future<Map<String, dynamic>> register(
+    String username,
+    String email,
+    String password, {
+    String? otp,
+    String? firebaseIdToken,
+  }) async {
+    final decoded = await post('/auth/register', body: {
+      'username': username,
+      'email': email,
+      'password': password,
+      if (otp != null && otp.isNotEmpty) 'otp': otp,
+      if (firebaseIdToken != null) 'firebaseIdToken': firebaseIdToken,
+    });
+    final data = _unwrap(decoded);
+    final token = _extractToken(decoded);
+    if (token == null || token.isEmpty) {
+      throw ApiException('Account created, but no session token was returned. Please sign in.');
     }
     await _tokens.writeAccess(token);
     return data;

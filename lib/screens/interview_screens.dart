@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../core/theme.dart';
 import '../models/content.dart';
 import '../services/feature_services.dart';
 import '../widgets/code_editor.dart';
@@ -567,9 +566,7 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen>
                     borderRadius: BorderRadius.circular(13),
                     border: Border.all(
                         color: fromMentor
-                            ? (theme.brightness == Brightness.dark
-                                ? EmberColors.line
-                                : EmberColors.lightLine)
+                            ? (Theme.of(context).colorScheme.outlineVariant)
                             : Colors.transparent),
                   ),
                   child: i == _messages.length
@@ -648,9 +645,7 @@ class _InterviewSessionScreenState extends State<InterviewSessionScreen>
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: theme.brightness == Brightness.dark
-                        ? EmberColors.line
-                        : EmberColors.lightLine),
+                    color: Theme.of(context).colorScheme.outlineVariant),
               ),
               child: SingleChildScrollView(
                 child: Text(_lastFeedback!, style: theme.textTheme.bodySmall),

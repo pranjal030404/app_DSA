@@ -29,8 +29,8 @@ class CodePane extends StatelessWidget {
       smartDashesType: SmartDashesType.disabled,
       smartQuotesType: SmartQuotesType.disabled,
       textAlignVertical: TextAlignVertical.top,
-      style: GoogleFonts.jetBrainsMono(fontSize: 13, height: 1.6, color: EmberColors.codeText),
-      cursorColor: EmberColors.gold,
+      style: GoogleFonts.jetBrainsMono(fontSize: 13, height: 1.6, color: AppPalette.of(context).codeText),
+      cursorColor: Theme.of(context).colorScheme.primary,
       decoration: const InputDecoration(
         hintText: 'Write your code…',
         filled: false,
@@ -44,9 +44,9 @@ class CodePane extends StatelessWidget {
     final pane = Container(
       height: height,
       decoration: BoxDecoration(
-        color: EmberColors.codeBg,
+        color: AppPalette.of(context).codeBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: EmberColors.lineStrong),
+        border: Border.all(color: AppPalette.of(context).codeBorder),
       ),
       child: expanded ? field : SingleChildScrollView(child: field),
     );

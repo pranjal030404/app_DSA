@@ -6,6 +6,7 @@ import '../core/theme.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/widgets.dart';
+import 'signup_screen.dart';
 
 const _languageLabels = {
   'javascript': 'JavaScript',
@@ -65,7 +66,12 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen>
 
   Future<void> _execute({required bool submit}) async {
     if (_running || _submitting) return;
+    if (context.read<AuthController>().user == null) {
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SignupScreen()));
+      return;
+    }
     final problem = await _future;
+    if (!mounted) return;
     final code = _codeByLanguage[_language]?.text ?? problem.starterCode[_language] ?? '';
     if (code.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -152,8 +158,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen>
                         Expanded(
                           child: Text(
                             problem.title,
-                            style: theme.textTheme.headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w500),
+                            style: theme.textTheme.headlineSmall,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -349,7 +354,6 @@ class _CodeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final busy = state._running || state._submitting;
     final result = state._result;
 
@@ -400,9 +404,9 @@ class _CodeTab extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
             child: Container(
               decoration: BoxDecoration(
-                color: EmberColors.codeBg,
+                color: AppPalette.of(context).codeBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: EmberColors.lineStrong),
+                border: Border.all(color: AppPalette.of(context).codeBorder),
               ),
               child: TextField(
                 controller: codeController,
@@ -417,9 +421,9 @@ class _CodeTab extends StatelessWidget {
                 style: GoogleFonts.jetBrainsMono(
                   fontSize: 13,
                   height: 1.6,
-                  color: EmberColors.codeText,
+                  color: AppPalette.of(context).codeText,
                 ),
-                cursorColor: EmberColors.gold,
+                cursorColor: Theme.of(context).colorScheme.primary,
                 decoration: const InputDecoration(
                   hintText: 'Write your solution…',
                   filled: false,
@@ -446,10 +450,9 @@ class _ResultPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final verdictColor = result.allPassed
-        ? (isDark ? EmberColors.easy : EmberColors.easyLight)
-        : (isDark ? EmberColors.hard : EmberColors.hardLight);
+        ? (AppPalette.of(context).easy)
+        : (AppPalette.of(context).hard);
 
     // Fixed height: a flex child here would fight the editor's Expanded.
     return SizedBox(
@@ -458,7 +461,7 @@ class _ResultPanel extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isDark ? EmberColors.surface : EmberColors.lightSurface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: verdictColor.withAlpha(90)),
         ),

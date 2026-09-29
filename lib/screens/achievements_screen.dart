@@ -147,7 +147,7 @@ class AnalyticsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(20),
               children: [
                 Text('See what is working.',
-                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500)),
+                    style: theme.textTheme.headlineSmall),
                 const SizedBox(height: 18),
                 Row(
                   children: [
@@ -169,9 +169,7 @@ class AnalyticsScreen extends StatelessWidget {
                         child: StatCard(
                             label: 'Streak',
                             value: '${user?.streak ?? 0} days',
-                            accent: theme.brightness == Brightness.dark
-                                ? EmberColors.medium
-                                : EmberColors.mediumLight)),
+                            accent: AppPalette.of(context).medium)),
                     const SizedBox(width: 12),
                     Expanded(
                         child: StatCard(
@@ -194,15 +192,9 @@ class AnalyticsScreen extends StatelessWidget {
                               value: e.value,
                               max: snap.data!.$2.values.fold(1, (m, v) => v > m ? v : m),
                               color: switch (e.key.toLowerCase()) {
-                                'easy' => theme.brightness == Brightness.dark
-                                    ? EmberColors.easy
-                                    : EmberColors.easyLight,
-                                'hard' => theme.brightness == Brightness.dark
-                                    ? EmberColors.hard
-                                    : EmberColors.hardLight,
-                                _ => theme.brightness == Brightness.dark
-                                    ? EmberColors.medium
-                                    : EmberColors.mediumLight,
+                                'easy' => AppPalette.of(context).easy,
+                                'hard' => AppPalette.of(context).hard,
+                                _ => AppPalette.of(context).medium,
                               },
                             ),
                       ],

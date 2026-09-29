@@ -127,7 +127,7 @@ class ResourceDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             children: [
               Text(r.title,
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500)),
+                  style: theme.textTheme.headlineSmall),
               const SizedBox(height: 14),
               SelectableText(
                 r.summary ?? '',
@@ -518,7 +518,7 @@ class HelpArticleScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             children: [
               Text(a.title,
-                  style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500)),
+                  style: theme.textTheme.headlineSmall),
               const SizedBox(height: 14),
               SelectableText(
                 a.body ?? a.summary ?? '',

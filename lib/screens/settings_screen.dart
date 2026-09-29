@@ -6,7 +6,7 @@ import '../core/api_client.dart';
 import '../services/services.dart';
 import '../state/app_state.dart';
 import '../widgets/widgets.dart';
-import 'login_screen.dart';
+import 'landing_screen.dart';
 
 /// Full account settings — profile fields, resume, and password change.
 /// Mirrors the web's Settings page (`dashboard/client/settings`), which
@@ -322,7 +322,7 @@ class _PasswordSectionState extends State<_PasswordSection> {
       final navigator = Navigator.of(context);
       await context.read<AuthController>().logout();
       navigator.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const LandingScreen()),
         (_) => false,
       );
     } on ApiException catch (e) {

@@ -14,6 +14,7 @@ class TokenStore {
   static const _kAccess = 'accessToken';
   static const _kRefresh = 'refreshCookie';
   static const _kTheme = 'themeMode';
+  static const _kWebThemes = 'webThemesCache';
 
   Future<String?> readAccess() => _storage.read(key: _kAccess);
   Future<void> writeAccess(String token) => _storage.write(key: _kAccess, value: token);
@@ -30,4 +31,8 @@ class TokenStore {
 
   Future<String?> readThemeMode() => _storage.read(key: _kTheme);
   Future<void> writeThemeMode(String mode) => _storage.write(key: _kTheme, value: mode);
+
+  /// Last `themes` array fetched from the server, as raw JSON.
+  Future<String?> readWebThemesCache() => _storage.read(key: _kWebThemes);
+  Future<void> writeWebThemesCache(String json) => _storage.write(key: _kWebThemes, value: json);
 }

@@ -31,28 +31,28 @@ class MainShell extends StatelessWidget {
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home),
+              selectedIcon: Icon(Icons.home_rounded),
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.code_outlined),
-              selectedIcon: Icon(Icons.code),
+              icon: Icon(Icons.code_rounded),
+              selectedIcon: Icon(Icons.code_rounded),
               label: 'Practice',
             ),
             NavigationDestination(
-              icon: Icon(Icons.terminal_outlined),
-              selectedIcon: Icon(Icons.terminal),
+              icon: Icon(Icons.terminal_rounded),
+              selectedIcon: Icon(Icons.terminal_rounded),
               label: 'Playground',
             ),
             NavigationDestination(
               icon: Icon(Icons.forum_outlined),
-              selectedIcon: Icon(Icons.forum),
+              selectedIcon: Icon(Icons.forum_rounded),
               label: 'Mentor',
             ),
             NavigationDestination(
-              icon: Icon(Icons.widgets_outlined),
-              selectedIcon: Icon(Icons.widgets),
-              label: 'More',
+              icon: Icon(Icons.grid_view_outlined),
+              selectedIcon: Icon(Icons.grid_view_rounded),
+              label: 'Explore',
             ),
           ],
         ),

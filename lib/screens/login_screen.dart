@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../widgets/widgets.dart';
+import 'forgot_password_screen.dart';
 import 'main_shell.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -34,8 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await auth.login(_email.text.trim(), _password.text);
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const MainShell()),
+        (_) => false,
       );
     } catch (e) {
       messenger.showSnackBar(
@@ -50,6 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      appBar: AppBar(),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -61,12 +65,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Align(alignment: Alignment.centerLeft, child: BrandMark(size: 44)),
+                    const Align(alignment: Alignment.centerLeft, child: BrandMark(size: 56)),
                     const SizedBox(height: 22),
                     Text(
                       'Welcome back.',
-                      style: theme.textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w500),
+                      style: theme.textTheme.headlineMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -103,7 +106,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       validator: (v) =>
                           (v == null || v.length < 6) ? 'At least 6 characters' : null,
                     ),
-                    const SizedBox(height: 26),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ForgotPasswordScreen(initialEmail: _email.text.trim()),
+                          ),
+                        ),
+                        child: const Text('Forgot password?'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: _busy
@@ -114,12 +128,12 @@ class _LoginScreenState extends State<LoginScreen> {
                             )
                           : const Text('Sign in'),
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'New here? Create your account on the web app — the same credentials work here.',
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: theme.colorScheme.onSurface.withAlpha(140)),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const SignupScreen()),
+                      ),
+                      child: const Text('New here? Create an account'),
                     ),
                   ],
                 ),

@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
+import '../core/theme.dart';
 import '../core/token_store.dart';
+import '../core/web_theme_presets.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 
@@ -59,6 +63,23 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> register(
+    String username,
+    String email,
+    String password, {
+    String? otp,
+    String? firebaseIdToken,
+  }) async {
+    user = await _auth.register(
+      username,
+      email,
+      password,
+      otp: otp,
+      firebaseIdToken: firebaseIdToken,
+    );
+    notifyListeners();
+  }
+
   /// Re-fetches the profile after a Settings-screen edit so the rest of the
   /// app (home stats, Collabs reputation gate, etc.) sees the fresh values.
   Future<void> refreshProfile() async {
@@ -73,26 +94,105 @@ class AuthController extends ChangeNotifier {
   }
 }
 
-/// Light / dark / system selection, persisted.
+/// The selected theme, persisted.
+///
+/// Choices: "system" (the app's Aurora design, following the phone's
+/// light/dark setting), Aurora Light / Aurora Dark, or any theme the website
+/// offers. The website list comes from GET /platform-settings/public, so
+/// themes an admin adds there appear in the app too.
 class ThemeController extends ChangeNotifier {
-  ThemeController(this._tokens) {
+  ThemeController(this._tokens, this._api) {
     _load();
   }
 
+  static const systemId = 'system';
+
   final TokenStore _tokens;
-  ThemeMode mode = ThemeMode.system;
+  final ApiClient _api;
+
+  String selectedId = systemId;
+  List<ThemeSpec> webThemes = _parseThemes(kBundledWebThemesJson);
+  final Map<String, ThemeData> _built = {};
+
+  static const appThemes = [ThemeSpec.auroraLight, ThemeSpec.auroraDark];
+
+  /// The fixed theme in use, or null when following the system.
+  ThemeSpec? get selected {
+    for (final t in [...appThemes, ...webThemes]) {
+      if (t.id == selectedId) return t;
+    }
+    return null;
+  }
+
+  String get selectedName => selected?.name ?? 'System (Aurora)';
+
+  ThemeMode get mode {
+    final spec = selected;
+    if (spec == null) return ThemeMode.system;
+    return spec.dark ? ThemeMode.dark : ThemeMode.light;
+  }
+
+  ThemeData get lightTheme => themeFor(selected ?? ThemeSpec.auroraLight);
+  ThemeData get darkTheme => themeFor(selected ?? ThemeSpec.auroraDark);
+
+  ThemeData themeFor(ThemeSpec spec) => _built.putIfAbsent(spec.id, () => buildAppTheme(spec));
 
   Future<void> _load() async {
     final saved = await _tokens.readThemeMode();
-    if (saved == 'light') mode = ThemeMode.light;
-    if (saved == 'dark') mode = ThemeMode.dark;
-    if (saved == 'system') mode = ThemeMode.system;
+    // Older builds stored a plain ThemeMode name.
+    selectedId = switch (saved) {
+      null || '' || 'system' => systemId,
+      'light' => ThemeSpec.auroraLight.id,
+      'dark' => ThemeSpec.auroraDark.id,
+      _ => saved,
+    };
+    final cached = await _tokens.readWebThemesCache();
+    if (cached != null) _setWebThemes(_parseThemes(cached));
+    notifyListeners();
+    await refreshWebThemes();
+  }
+
+  /// Pulls the latest website themes; keeps the current list on failure.
+  Future<void> refreshWebThemes() async {
+    try {
+      final decoded = await _api.get('/platform-settings/public');
+      final data = _api.unwrap(decoded);
+      final raw = data is Map ? data['themes'] : null;
+      if (raw is! List) return;
+      final json = jsonEncode(raw);
+      final parsed = _parseThemes(json);
+      if (parsed.isEmpty) return;
+      _setWebThemes(parsed);
+      await _tokens.writeWebThemesCache(json);
+      notifyListeners();
+    } catch (_) {
+      // Offline — the cached or bundled list stays in place.
+    }
+  }
+
+  Future<void> select(String id) async {
+    selectedId = id;
+    await _tokens.writeThemeMode(id);
     notifyListeners();
   }
 
-  Future<void> setMode(ThemeMode value) async {
-    mode = value;
-    await _tokens.writeThemeMode(value.name);
-    notifyListeners();
+  void _setWebThemes(List<ThemeSpec> themes) {
+    webThemes = themes;
+    _built.removeWhere((id, _) => !appThemes.any((t) => t.id == id));
+    // A theme the admin deleted falls back to following the system.
+    if (selected == null && selectedId != systemId) selectedId = systemId;
+  }
+
+  static List<ThemeSpec> _parseThemes(String json) {
+    try {
+      final list = jsonDecode(json);
+      if (list is! List) return const [];
+      return [
+        for (final t in list)
+          if (t is Map) ThemeSpec.fromWebTheme(Map<String, dynamic>.from(t)),
+      ].whereType<ThemeSpec>().toList();
+    } catch (_) {
+      return const [];
+    }
   }
 }

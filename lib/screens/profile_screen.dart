@@ -3,8 +3,9 @@ import 'package:provider/provider.dart';
 
 import '../state/app_state.dart';
 import '../widgets/widgets.dart';
-import 'login_screen.dart';
+import 'landing_screen.dart';
 import 'settings_screen.dart';
+import 'theme_picker_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -71,14 +72,15 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   const Eyebrow('Appearance'),
                   const SizedBox(height: 12),
-                  SegmentedButton<ThemeMode>(
-                    segments: const [
-                      ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.settings_suggest_outlined, size: 16)),
-                      ButtonSegment(value: ThemeMode.light, label: Text('Parchment'), icon: Icon(Icons.light_mode_outlined, size: 16)),
-                      ButtonSegment(value: ThemeMode.dark, label: Text('Ember'), icon: Icon(Icons.dark_mode_outlined, size: 16)),
-                    ],
-                    selected: {themeController.mode},
-                    onSelectionChanged: (s) => themeController.setMode(s.first),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: IconBadge(icon: Icons.palette_rounded, color: theme.colorScheme.primary),
+                    title: const Text('Theme'),
+                    subtitle: Text(themeController.selectedName),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ThemePickerScreen()),
+                    ),
                   ),
                 ],
               ),
@@ -120,7 +122,7 @@ class ProfileScreen extends StatelessWidget {
               final navigator = Navigator.of(context);
               await context.read<AuthController>().logout();
               navigator.pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                MaterialPageRoute(builder: (_) => const LandingScreen()),
                 (_) => false,
               );
             },

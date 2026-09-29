@@ -6,7 +6,8 @@ import '../state/app_state.dart';
 import '../widgets/widgets.dart';
 import 'problem_detail_screen.dart';
 
-class ProblemsScreen extends StatefulWidget {  const ProblemsScreen({super.key});
+class ProblemsScreen extends StatefulWidget {
+  const ProblemsScreen({super.key});
 
   static void openProblemsTab(BuildContext context) => shellTab.value = 1;
 
@@ -127,42 +128,72 @@ class _ProblemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final accent = difficultyColor(context, problem.difficulty);
     return Card(
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => ProblemDetailScreen(slug: problem.slug, title: problem.title),
           ),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+        child: IntrinsicHeight(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Container(width: 4, color: accent),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      problem.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    if (problem.topics.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        problem.topics.take(3).join(' · '),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withAlpha(140),
-                        ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              problem.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          DifficultyBadge(level: problem.difficulty),
+                        ],
                       ),
+                      if (problem.topics.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final t in problem.topics.take(3))
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  t,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.onSurface.withAlpha(170),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              DifficultyBadge(level: problem.difficulty, filled: true),
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: Icon(Icons.chevron_right_rounded, color: theme.colorScheme.onSurface.withAlpha(90)),
+              ),
             ],
           ),
         ),

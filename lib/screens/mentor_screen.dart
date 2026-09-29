@@ -151,7 +151,6 @@ class _Bubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final mentor = message.fromMentor;
     final error = message.error;
 
@@ -161,9 +160,9 @@ class _Bubble extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
       decoration: BoxDecoration(
         color: error
-            ? (isDark ? EmberColors.hard.withAlpha(40) : EmberColors.hardLight.withAlpha(30))
+            ? AppPalette.of(context).hard.withAlpha(35)
             : mentor
-                ? (isDark ? EmberColors.surface : EmberColors.lightSurface)
+                ? (Theme.of(context).colorScheme.surface)
                 : theme.colorScheme.primary.withAlpha(34),
         borderRadius: BorderRadius.circular(14).copyWith(
           bottomLeft: mentor ? const Radius.circular(4) : null,
@@ -171,9 +170,9 @@ class _Bubble extends StatelessWidget {
         ),
         border: Border.all(
           color: error
-              ? EmberColors.hard.withAlpha(90)
+              ? AppPalette.of(context).hard.withAlpha(90)
               : mentor
-                  ? (isDark ? EmberColors.line : EmberColors.lightLine)
+                  ? (Theme.of(context).colorScheme.outlineVariant)
                   : Colors.transparent,
         ),
       ),
@@ -182,7 +181,7 @@ class _Bubble extends StatelessWidget {
         style: theme.textTheme.bodyMedium?.copyWith(
           height: 1.5,
           color: error
-              ? (isDark ? EmberColors.hard : EmberColors.hardLight)
+              ? (AppPalette.of(context).hard)
               : theme.colorScheme.onSurface,
         ),
       ),
