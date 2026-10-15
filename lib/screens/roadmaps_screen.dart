@@ -134,19 +134,14 @@ class _RoadmapsScreenState extends State<RoadmapsScreen> {
             return EmptyState(message: '${snap.error}', onRetry: _reload);
           }
           final roadmaps = snap.data ?? const <Roadmap>[];
-          if (roadmaps.isEmpty) {
-            return EmptyState(
-              message: 'No roadmaps yet.\nDescribe a goal and the mentor will plan it out.',
-              onRetry: _generate,
-              retryLabel: 'Generate one',
-            );
-          }
+          final isDemo = roadmaps.any((r) => r.id.startsWith('demo-'));
           return RefreshIndicator(
             onRefresh: () async => _reload(),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(20),
               children: [
+                if (isDemo) const SampleBanner(),
                 for (final r in roadmaps)
                   Card(
                     margin: const EdgeInsets.only(bottom: 10),
@@ -198,23 +193,25 @@ class _RoadmapDetailScreenState extends State<RoadmapDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Roadmap'),
+        // Sample plans have no server row to delete.
         actions: [
-          IconButton(
-            tooltip: 'Delete roadmap',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              final messenger = ScaffoldMessenger.of(context);
-              try {
-                await context.read<RoadmapService>().delete(widget.roadmapId);
-                messenger.showSnackBar(
-                    const SnackBar(content: Text('Roadmap deleted.')));
-                navigator.pop();
-              } catch (e) {
-                messenger.showSnackBar(SnackBar(content: Text(e.toString())));
-              }
-            },
-          ),
+          if (!widget.roadmapId.startsWith('demo-'))
+            IconButton(
+              tooltip: 'Delete roadmap',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await context.read<RoadmapService>().delete(widget.roadmapId);
+                  messenger.showSnackBar(
+                      const SnackBar(content: Text('Roadmap deleted.')));
+                  navigator.pop();
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+                }
+              },
+            ),
         ],
       ),
       body: FutureBuilder<Roadmap>(

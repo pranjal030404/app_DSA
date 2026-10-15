@@ -19,7 +19,7 @@ class MoreScreen extends StatelessWidget {
 
   static const _learn = <(String, String, IconData, Widget)>[
     ('Progress', 'Your analytics', Icons.insights_rounded, AnalyticsScreen()),
-    ('Mock interviews', 'Timed practice', Icons.record_voice_over_rounded, InterviewDashboardScreen()),
+    ('AI interviews', 'Technical, HR & DSA', Icons.record_voice_over_rounded, InterviewDashboardScreen()),
     ('Roadmaps', 'Guided plans', Icons.route_rounded, RoadmapsScreen()),
     ('Achievements', 'Badges & goals', Icons.emoji_events_rounded, AchievementsScreen()),
     ('Resources', 'Guides & notes', Icons.menu_book_rounded, ResourcesScreen()),

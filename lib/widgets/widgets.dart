@@ -340,3 +340,36 @@ class EmptyState extends StatelessWidget {
     );
   }
 }
+
+/// Slim notice above lists that are currently rendering the bundled sample
+/// content (see core/demo_data.dart) instead of live server data.
+class SampleBanner extends StatelessWidget {
+  const SampleBanner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      color: theme.colorScheme.primary.withAlpha(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, size: 16, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Sample content — real data appears here as soon as the server has it.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withAlpha(185),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

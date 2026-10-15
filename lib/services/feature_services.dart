@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import '../core/api_client.dart';
+import '../core/demo_data.dart';
+import '../models/interview_mode.dart';
 import '../models/content.dart';
 
 /// Shared list-coercion helper: the backend returns bare arrays in `data`
@@ -103,6 +105,27 @@ class PlaygroundService {
 
 /* ------------------------------------------------------------------ Interviews */
 
+/// A new id for one logical chat message. Reuse it when retrying that message.
+String newClientMessageId(String message) =>
+    '${DateTime.now().microsecondsSinceEpoch}-${message.hashCode.abs()}';
+
+/// Server clock state returned by pause / resume.
+class InterviewClock {
+  InterviewClock({required this.status, this.timeRemaining});
+  final String status;
+  final int? timeRemaining; // seconds
+
+  factory InterviewClock.from(dynamic data) {
+    if (data is Map) {
+      return InterviewClock(
+        status: (data['status'] ?? 'in-progress').toString(),
+        timeRemaining: data['timeRemaining'] is num ? (data['timeRemaining'] as num).toInt() : null,
+      );
+    }
+    return InterviewClock(status: 'in-progress');
+  }
+}
+
 class InterviewService {
   InterviewService(this._api);
   final ApiClient _api;
@@ -122,7 +145,7 @@ class InterviewService {
       'questionCount': questionCount,
       'topics': topics,
     });
-    final data = _api.unwrap(decoded);
+    final data = _api.unwrapOrBody(decoded);
     if (data is Map) {
       final id = data['sessionId'] ?? data['_id'] ?? data['id'];
       if (id != null) return id.toString();
@@ -133,18 +156,23 @@ class InterviewService {
   /// GET /interview/session/:id
   Future<InterviewSession> session(String sessionId) async {
     final decoded = await _api.get('/interview/session/$sessionId');
-    final data = _api.unwrap(decoded);
+    final data = _api.unwrapOrBody(decoded);
     if (data is Map) return InterviewSession.fromMap(Map<String, dynamic>.from(data));
     throw ApiException('Interview session not found.');
   }
 
   /// POST /interview/session/:id/message { message } → interviewer reply.
-  Future<String> sendMessage(String sessionId, String message, {String? code}) async {
+  ///
+  /// [clientMessageId] must stay the same when the same message is retried, so
+  /// the server can recognise it and not answer twice.
+  Future<String> sendMessage(String sessionId, String message,
+      {String? code, String? clientMessageId}) async {
     final decoded = await _api.post('/interview/session/$sessionId/message', body: {
       'message': message,
+      'clientMessageId': clientMessageId ?? newClientMessageId(message),
       if (code != null) 'code': code,
-    });
-    final data = _api.unwrap(decoded);
+    }, timeout: aiTimeout);
+    final data = _api.unwrapOrBody(decoded);
     if (data is Map) {
       final v = data['response'] ?? data['reply'] ?? data['message'];
       if (v != null) return v.toString();
@@ -155,8 +183,8 @@ class InterviewService {
 
   /// POST /interview/session/:id/hint
   Future<String> hint(String sessionId) async {
-    final decoded = await _api.post('/interview/session/$sessionId/hint');
-    final data = _api.unwrap(decoded);
+    final decoded = await _api.post('/interview/session/$sessionId/hint', timeout: aiTimeout);
+    final data = _api.unwrapOrBody(decoded);
     if (data is Map) {
       final v = data['hint'] ?? data['response'] ?? data['message'];
       if (v != null) return v.toString();
@@ -179,8 +207,20 @@ class InterviewService {
     final decoded = await _api.post('/interview/session/$sessionId/submit', body: {
       'code': code,
       'language': language,
-    });
+    }, timeout: aiTimeout);
     return RunOutcome.from(decoded);
+  }
+
+  /// POST /interview/session/:id/pause — freezes the server-side clock.
+  Future<InterviewClock> pause(String sessionId) async {
+    final decoded = await _api.post('/interview/session/$sessionId/pause');
+    return InterviewClock.from(_api.unwrapOrBody(decoded));
+  }
+
+  /// POST /interview/session/:id/resume
+  Future<InterviewClock> resume(String sessionId) async {
+    final decoded = await _api.post('/interview/session/$sessionId/resume');
+    return InterviewClock.from(_api.unwrapOrBody(decoded));
   }
 
   /// POST /interview/session/:id/end
@@ -191,7 +231,7 @@ class InterviewService {
   /// GET /interview/history
   Future<List<InterviewHistoryItem>> history() async {
     final decoded = await _api.get('/interview/history');
-    return _rows(_api.unwrap(decoded), ['history', 'interviews', 'items'])
+    return _rows(_api.unwrapOrBody(decoded), ['history', 'interviews', 'items'])
         .map(InterviewHistoryItem.fromMap)
         .toList();
   }
@@ -200,7 +240,7 @@ class InterviewService {
   Future<InterviewStats> stats() async {
     try {
       final decoded = await _api.get('/interview/stats');
-      final data = _api.unwrap(decoded);
+      final data = _api.unwrapOrBody(decoded);
       if (data is Map) return InterviewStats.fromMap(Map<String, dynamic>.from(data));
     } on ApiException {
       // Stats are optional chrome — the dashboard still renders without them.
@@ -211,7 +251,9 @@ class InterviewService {
   /// GET /interview/results/:id — raw map; the screen renders it generically.
   Future<Map<String, dynamic>> results(String sessionId) async {
     final decoded = await _api.get('/interview/results/$sessionId');
-    final data = _api.unwrap(decoded);
+    final data = _api.unwrapOrBody(decoded);
+    // The payload is `{ success, results: {...} }`; hand the screen the inner map.
+    if (data is Map && data['results'] is Map) return Map<String, dynamic>.from(data['results'] as Map);
     if (data is Map) return Map<String, dynamic>.from(data);
     throw ApiException('Results not found.');
   }
@@ -229,16 +271,102 @@ class InterviewService {
     if (decoded is Map) return InterviewReplay.fromMap(Map<String, dynamic>.from(decoded));
     throw ApiException('Replay not found.');
   }
+
+  /* ---- AI interview: modes, rounds, coding hold, diagrams, resume ---- */
+
+  /// The interviewer can take a while on a local model (CPU); chat waits longer than ordinary calls.
+  static const aiTimeout = Duration(seconds: 75);
+
+  /// POST /interview/create with the full wizard payload. Returns (sessionId, notice).
+  Future<(String, String?)> createInterview(Map<String, dynamic> body) async {
+    final decoded = await _api.post('/interview/create', body: body, timeout: aiTimeout);
+    final data = _api.unwrapOrBody(decoded);
+    if (data is Map) {
+      final id = data['sessionId'] ?? data['_id'] ?? data['id'];
+      if (id != null) return (id.toString(), data['notice']?.toString());
+    }
+    throw ApiException('Could not start the interview.');
+  }
+
+  /// GET /interview/tracks: presets, tracks, experience levels and modes for the wizard.
+  Future<InterviewCatalog> catalog() async {
+    final decoded = await _api.get('/interview/tracks');
+    final data = _api.unwrapOrBody(decoded);
+    return data is Map ? InterviewCatalog.fromMap(Map<String, dynamic>.from(data)) : InterviewCatalog();
+  }
+
+  /// GET /interview/active: the most recent unfinished interview, or null.
+  Future<Map<String, dynamic>?> active() async {
+    try {
+      final data = _api.unwrapOrBody(await _api.get('/interview/active'));
+      if (data is Map && data['active'] is Map) return Map<String, dynamic>.from(data['active'] as Map);
+    } on ApiException {
+      // Optional chrome: the dashboard works without it.
+    }
+    return null;
+  }
+
+  /// POST /interview/session/:id/message, keeping the whole reply (the conversational interviewer may
+  /// move on by itself: `advance` then carries the next question, round timer or a coding-round hold).
+  Future<Map<String, dynamic>> sendTurn(String sessionId, String message, {String? code, String? clientMessageId}) async {
+    final decoded = await _api.post('/interview/session/$sessionId/message', body: {
+      'message': message,
+      'clientMessageId': clientMessageId ?? newClientMessageId(message),
+      if (code != null) 'code': code,
+    }, timeout: aiTimeout);
+    final data = _api.unwrapOrBody(decoded);
+    if (data is Map) return Map<String, dynamic>.from(data);
+    throw ApiException('The interviewer did not respond.');
+  }
+
+  /// POST /interview/session/:id/answer (conversational): grade this question and move on, or skip it.
+  Future<Map<String, dynamic>> answer(String sessionId, int questionIndex, {bool skip = false}) async {
+    final decoded = await _api.post('/interview/session/$sessionId/answer',
+        body: {'questionIndex': questionIndex, 'skip': skip}, timeout: aiTimeout);
+    final data = _api.unwrapOrBody(decoded);
+    if (data is Map) return Map<String, dynamic>.from(data);
+    throw ApiException('Could not save your answer.');
+  }
+
+  /// PUT /interview/session/:id/diagram: saves (or clears, with null) the system-design diagram.
+  Future<Map<String, dynamic>?> saveDiagram(String sessionId, int questionIndex, Map<String, dynamic>? scene) async {
+    final decoded = await _api.put('/interview/session/$sessionId/diagram', body: {'questionIndex': questionIndex, 'scene': scene});
+    final data = _api.unwrapOrBody(decoded);
+    return data is Map && data['scene'] is Map ? Map<String, dynamic>.from(data['scene'] as Map) : null;
+  }
+
+  /// POST /interview/session/:id/loop/coding: start (or reopen) the linked coding round. Returns its session id.
+  Future<(String, String?)> startCodingRound(String sessionId) async {
+    final data = _api.unwrapOrBody(await _api.post('/interview/session/$sessionId/loop/coding', timeout: aiTimeout));
+    if (data is Map && data['sessionId'] != null) return (data['sessionId'].toString(), data['notice']?.toString());
+    throw ApiException('Could not start the coding round.');
+  }
+
+  /// POST /interview/session/:id/loop/skip-coding: continue the interview without its coding round.
+  Future<void> skipCodingRound(String sessionId) async {
+    _api.unwrapOrBody(await _api.post('/interview/session/$sessionId/loop/skip-coding'));
+  }
+
+  /// POST /interview/resume/parse (multipart `resume`): the items read from a PDF, for the candidate to review.
+  Future<ResumeProfile> parseResume(List<int> bytes, String filename) async {
+    final data = _api.unwrapOrBody(await _api.uploadFile('/interview/resume/parse', field: 'resume', bytes: bytes, filename: filename));
+    if (data is Map) return ResumeProfile.fromMap(Map<String, dynamic>.from(data));
+    throw ApiException('Could not read that resume.');
+  }
 }
 
 /// Normalised outcome for interview run/submit calls, which come back in a
 /// couple of shapes: run → {results, passedTests...}, submit → {feedback,
 /// hasNextQuestion, nextQuestionIndex, results...}.
 class RunOutcome {
-  RunOutcome({this.feedback, this.hasNextQuestion, this.nextQuestionIndex, this.result});
+  RunOutcome({this.feedback, this.hasNextQuestion, this.nextQuestionIndex, this.nextQuestion, this.result});
   final String? feedback;
   final bool? hasNextQuestion;
   final int? nextQuestionIndex;
+  /// The question the server will actually grade next. It can differ from the
+  /// one planned at the start (adaptive difficulty may swap it), so always
+  /// show this one rather than a list cached when the session opened.
+  final Map<String, dynamic>? nextQuestion;
   final dynamic result; // RunResult-shaped map when present
 
   factory RunOutcome.from(dynamic decoded) {
@@ -248,7 +376,10 @@ class RunOutcome {
         feedback: (data['feedback'] ?? data['summary'])?.toString(),
         hasNextQuestion: data['hasNextQuestion'] is bool ? data['hasNextQuestion'] as bool : null,
         nextQuestionIndex: data['nextQuestionIndex'] is num ? (data['nextQuestionIndex'] as num).toInt() : null,
-        result: data['results'] ?? data,
+        nextQuestion: data['nextQuestion'] is Map ? Map<String, dynamic>.from(data['nextQuestion'] as Map) : null,
+        // `results` is the per-test LIST on this backend; the pass counts sit beside it.
+        // Only treat `results` as the summary when it is itself a map.
+        result: data['results'] is Map ? data['results'] : data,
       );
     }
     return RunOutcome();
@@ -279,14 +410,24 @@ class RoadmapService {
   RoadmapService(this._api);
   final ApiClient _api;
 
+  /// GET /roadmaps — falls back to the bundled sample plans while the
+  /// account has none, so the screen stays presentable during demos.
   Future<List<Roadmap>> list() async {
-    final decoded = await _api.get('/roadmaps');
-    return _rows(_api.unwrap(decoded), ['roadmaps', 'items'])
-        .map(Roadmap.fromMap)
-        .toList();
+    try {
+      final decoded = await _api.get('/roadmaps');
+      final roadmaps = _rows(_api.unwrap(decoded), ['roadmaps', 'items'])
+          .map(Roadmap.fromMap)
+          .toList();
+      if (roadmaps.isNotEmpty) return roadmaps;
+    } catch (_) {
+      // Server unreachable / signed-out — sample content below.
+    }
+    return demoRoadmaps;
   }
 
   Future<Roadmap> byId(String id) async {
+    // Sample plans resolve locally — there is no server row behind them.
+    if (id.startsWith('demo-')) return demoRoadmapById(id);
     final decoded = await _api.get('/roadmaps/$id');
     final data = _api.unwrap(decoded);
     final m = data is Map ? (data['roadmap'] is Map ? data['roadmap'] : data) : null;
@@ -316,6 +457,10 @@ class AchievementsService {
   final ApiClient _api;
 
   /// GET /achievements/user → { achievements, badges, stats }
+  ///
+  /// `badges` is an object of tier → count (`{bronze: 1, silver: 0, …}`),
+  /// not an array — casting it to List throws, so both shapes are accepted
+  /// and only earned tiers (count > 0) are surfaced.
   Future<(List<Achievement>, List<String>)> user() async {
     final decoded = await _api.get('/achievements/user');
     final data = _api.unwrap(decoded);
@@ -323,10 +468,26 @@ class AchievementsService {
     final achievements = _rows(data['achievements'], ['achievements'])
         .map(Achievement.fromMap)
         .toList();
-    final badges = ((data['badges'] ?? const []) as List)
-        .map((b) => b is Map ? (b['name'] ?? b['title'] ?? b['icon'] ?? '').toString() : b.toString())
-        .where((s) => s.isNotEmpty)
-        .toList();
+
+    final rawBadges = data['badges'];
+    final List<String> badges;
+    if (rawBadges is Map) {
+      badges = rawBadges.entries
+          .where((e) => e.value is num && (e.value as num) > 0)
+          .map((e) {
+            final name = e.key.toString().replaceAll('_', ' ').replaceAll('-', ' ').trim();
+            return name.isEmpty ? '' : '${name[0].toUpperCase()}${name.substring(1)}';
+          })
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } else if (rawBadges is List) {
+      badges = rawBadges
+          .map((b) => b is Map ? (b['name'] ?? b['title'] ?? b['icon'] ?? '').toString() : b.toString())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } else {
+      badges = const [];
+    }
     return (achievements, badges);
   }
 }
@@ -373,14 +534,24 @@ class ResourcesService {
   ResourcesService(this._api);
   final ApiClient _api;
 
+  /// GET /resources — falls back to bundled sample guides while the
+  /// community library is empty or unreachable.
   Future<List<ResourceItem>> list() async {
-    final decoded = await _api.get('/resources');
-    return _rows(_api.unwrap(decoded), ['resources', 'items'])
-        .map(ResourceItem.fromMap)
-        .toList();
+    try {
+      final decoded = await _api.get('/resources');
+      final items = _rows(_api.unwrap(decoded), ['resources', 'items'])
+          .map(ResourceItem.fromMap)
+          .toList();
+      if (items.isNotEmpty) return items;
+    } catch (_) {
+      // Server unreachable / signed-out — sample content below.
+    }
+    return demoResources;
   }
 
   Future<ResourceItem> byId(String idOrSlug) async {
+    // Sample guides resolve locally — there is no server row behind them.
+    if (idOrSlug.startsWith('demo-')) return demoResourceById(idOrSlug);
     final decoded = await _api.get('/resources/$idOrSlug');
     final data = _api.unwrap(decoded);
     final m = data is Map ? (data['resource'] is Map ? data['resource'] : data) : null;
@@ -426,16 +597,25 @@ class CollabService {
   CollabService(this._api);
   final ApiClient _api;
 
-  /// GET /suggested-edits/queue — requires 1000+ reputation or a review
-  /// permission; a lower-reputation account gets a clear 403 to surface.
+  /// GET /suggested-edits/queue — the live queue needs 1000+ reputation or a
+  /// review permission; until then (or while it's simply empty) the bundled
+  /// sample edits keep the review flow walkable.
   Future<List<SuggestedEdit>> queue() async {
     // `{ success, pendingEdits, total, hasMore }` — no `data` wrapper.
-    final decoded = await _api.get('/suggested-edits/queue');
-    return _rows(decoded, ['pendingEdits']).map(SuggestedEdit.fromMap).toList();
+    try {
+      final decoded = await _api.get('/suggested-edits/queue');
+      final edits = _rows(decoded, ['pendingEdits']).map(SuggestedEdit.fromMap).toList();
+      if (edits.isNotEmpty) return edits;
+    } catch (_) {
+      // 403 below the reputation gate / server unreachable — sample below.
+    }
+    return demoReviewQueue;
   }
 
   /// GET /suggested-edits/user/:userId — the signed-in user's own
-  /// submissions. Always available, regardless of reputation.
+  /// submissions. Always available, regardless of reputation. Falls back to
+  /// a small sample history (one edit per review status) while the account
+  /// hasn't suggested anything yet.
   ///
   /// The backend's route is `/user/:userId?` with the id meant to be
   /// optional (defaulting to the caller), but on this Express version the
@@ -443,8 +623,14 @@ class CollabService {
   /// id is passed explicitly rather than relying on that fallback.
   Future<List<SuggestedEdit>> mySuggestions(String userId) async {
     // `{ success, suggestions }` — no `data` wrapper.
-    final decoded = await _api.get('/suggested-edits/user/$userId');
-    return _rows(decoded, ['suggestions']).map(SuggestedEdit.fromMap).toList();
+    try {
+      final decoded = await _api.get('/suggested-edits/user/$userId');
+      final edits = _rows(decoded, ['suggestions']).map(SuggestedEdit.fromMap).toList();
+      if (edits.isNotEmpty) return edits;
+    } catch (_) {
+      // Server unreachable / signed-out — sample content below.
+    }
+    return demoMySuggestions;
   }
 
   /// POST /suggested-edits/:resourceType/:resourceId { proposedChanges, reason }

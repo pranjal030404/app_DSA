@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final actions = <(IconData, String, String, Widget)>[
       (Icons.route_rounded, 'Roadmaps', 'Your plan', const RoadmapsScreen()),
-      (Icons.record_voice_over_rounded, 'Interviews', 'Mock sessions', const InterviewDashboardScreen()),
+      (Icons.record_voice_over_rounded, 'AI interviews', 'Technical, HR & DSA', const InterviewDashboardScreen()),
       (Icons.insights_rounded, 'Progress', 'Analytics', const AnalyticsScreen()),
       (Icons.emoji_events_rounded, 'Achievements', 'Badges', const AchievementsScreen()),
       (Icons.menu_book_rounded, 'Resources', 'Guides', const ResourcesScreen()),

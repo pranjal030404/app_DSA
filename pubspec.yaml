@@ -1,7 +1,7 @@
 name: dsa_mentor
 description: DSA Mentor — deliberate practice for data structures and algorithms (Android client).
 publish_to: "none"
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -23,9 +23,15 @@ dependencies:
   # android/app/google-services.json; see README.md.
   firebase_core: ^4.1.0
   firebase_auth: ^6.1.0
+  speech_to_text: ^7.5.0
+  flutter_tts: ^4.2.5
+  camera: ^0.12.1
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  # On-device end-to-end test of the AI interview (integration_test/), run on an emulator against a local backend.
+  integration_test:
     sdk: flutter
   flutter_lints: ^4.0.0
   # Generates mipmap + adaptive launcher icons from a single source image —

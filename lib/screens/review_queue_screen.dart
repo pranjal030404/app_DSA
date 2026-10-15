@@ -74,6 +74,12 @@ class _QueueTab extends StatelessWidget {
   final VoidCallback onChanged;
 
   Future<void> _act(BuildContext context, String editId, Future<void> Function() action, String successMessage) async {
+    // Sample rows have nothing live behind them — voting would just 404.
+    if (editId.startsWith('demo-')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sample item — nothing to review on the server yet.')));
+      return;
+    }
     try {
       await action();
       if (!context.mounted) return;
@@ -103,6 +109,7 @@ class _QueueTab extends StatelessWidget {
           return EmptyState(message: message, onRetry: onChanged);
         }
         final edits = snap.data ?? const <SuggestedEdit>[];
+        final isDemo = edits.any((e) => e.id.startsWith('demo-'));
         if (edits.isEmpty) {
           return const EmptyState(message: 'Nothing pending review right now.');
         }
@@ -112,6 +119,7 @@ class _QueueTab extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
             children: [
+              if (isDemo) const SampleBanner(),
               for (final e in edits)
                 Card(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -210,6 +218,7 @@ class _MineTab extends StatelessWidget {
           return EmptyState(message: '${snap.error}', onRetry: onRetry);
         }
         final mine = snap.data ?? const <SuggestedEdit>[];
+        final isDemo = mine.any((e) => e.id.startsWith('demo-'));
         if (mine.isEmpty) {
           return const EmptyState(message: "You haven't suggested any edits yet.");
         }
@@ -219,6 +228,7 @@ class _MineTab extends StatelessWidget {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
             children: [
+              if (isDemo) const SampleBanner(),
               for (final e in mine)
                 Card(
                   margin: const EdgeInsets.only(bottom: 10),

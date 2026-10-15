@@ -88,6 +88,7 @@ class Achievement {
   Achievement({
     required this.title,
     this.description,
+    this.icon,
     this.unlocked = false,
     this.progress,
     this.target,
@@ -96,20 +97,27 @@ class Achievement {
 
   final String title;
   final String? description;
+  final String? icon; // emoji from the backend catalogue, e.g. "🎯"
   final bool unlocked;
   final int? progress;
   final int? target;
   final String? tier;
 
+  /// The backend reports `progress` as a percentage and the real counts as
+  /// `current`/`target`; prefer the counts when they exist so the progress
+  /// bar reads 3/10 rather than 30/10.
   factory Achievement.fromMap(Map<String, dynamic> m) => Achievement(
         title: (m['title'] ?? m['name'] ?? 'Achievement').toString(),
         description: (m['description'] ?? m['hint'])?.toString(),
+        icon: (m['icon'])?.toString(),
         unlocked: m['unlocked'] == true || m['earned'] == true || m['achieved'] == true,
-        progress: m['progress'] is num ? (m['progress'] as num).toInt() : null,
+        progress: m['current'] is num
+            ? (m['current'] as num).toInt()
+            : (m['progress'] is num ? (m['progress'] as num).toInt() : null),
         target: m['target'] is num
             ? (m['target'] as num).toInt()
             : (m['required'] is num ? (m['required'] as num).toInt() : null),
-        tier: (m['tier'] ?? m['rarity'])?.toString(),
+        tier: (m['tier'] ?? m['rarity'] ?? m['badge'])?.toString(),
       );
 }
 
@@ -139,8 +147,11 @@ class InterviewStats {
 }
 
 class InterviewHistoryItem {
-  InterviewHistoryItem({required this.id, this.type, this.difficulty, this.score, this.date, this.status});
+  InterviewHistoryItem({required this.id, this.type, this.difficulty, this.score, this.date, this.status, this.interviewMode, this.track, this.role});
   final String id;
+  final String? interviewMode;
+  final String? track;
+  final String? role;
   final String? type;
   final String? difficulty;
   final int? score;
@@ -154,17 +165,71 @@ class InterviewHistoryItem {
         score: m['score'] is num ? (m['score'] as num).round() : (m['overallScore'] is num ? (m['overallScore'] as num).round() : null),
         date: DateTime.tryParse('${m['createdAt'] ?? m['date'] ?? ''}'),
         status: (m['status'])?.toString(),
+        interviewMode: m['interviewMode']?.toString(),
+        track: m['track']?.toString(),
+        role: m['role']?.toString(),
       );
 }
 
 class InterviewQuestion {
-  InterviewQuestion({required this.title, this.description});
+  InterviewQuestion({
+    required this.title,
+    this.description,
+    this.id,
+    this.kind,
+    this.difficulty,
+    this.topics = const [],
+    this.examples = const [],
+    this.starterCode = const {},
+  });
   final String title;
   final String? description;
+  final String? id;
+
+  /// coding (DSA) | conceptual | system-design | behavioral | practical
+  final String? kind;
+  final String? difficulty;
+  final List<String> topics;
+
+  /// DSA only: public sample cases `{input, output, explanation}`. Never hidden tests.
+  final List<Map<String, dynamic>> examples;
+
+  /// DSA only: language -> starter code.
+  final Map<String, String> starterCode;
 
   factory InterviewQuestion.fromMap(Map<String, dynamic> m) => InterviewQuestion(
+        id: (m['_id'] ?? m['id'])?.toString(),
         title: (m['title'] ?? m['name'] ?? 'Question').toString(),
         description: (m['description'] ?? m['problem'] ?? m['prompt'])?.toString(),
+        kind: m['kind']?.toString(),
+        difficulty: m['difficulty']?.toString(),
+        topics: (m['topics'] is List) ? (m['topics'] as List).map((e) => e.toString()).toList() : const [],
+        examples: (m['examples'] is List)
+            ? (m['examples'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+            : const [],
+        starterCode: (m['starterCode'] is Map)
+            ? Map<String, dynamic>.from(m['starterCode'] as Map).map((k, v) => MapEntry(k, v?.toString() ?? ''))
+            : const {},
+      );
+}
+
+/// One round of a multi-round (job / technical) interview, as the session reports it.
+class InterviewRound {
+  InterviewRound({required this.key, required this.label, this.purpose, this.minutes, this.start = 0, this.count = 0});
+  final String key;
+  final String label;
+  final String? purpose;
+  final int? minutes;
+  final int start;
+  final int count;
+
+  factory InterviewRound.fromMap(Map<String, dynamic> m) => InterviewRound(
+        key: (m['key'] ?? '').toString(),
+        label: (m['label'] ?? 'Round').toString(),
+        purpose: m['purpose']?.toString(),
+        minutes: m['minutes'] is num ? (m['minutes'] as num).toInt() : null,
+        start: m['start'] is num ? (m['start'] as num).toInt() : 0,
+        count: m['count'] is num ? (m['count'] as num).toInt() : 0,
       );
 }
 
@@ -176,20 +241,77 @@ class InterviewSession {
     this.currentIndex = 0,
     this.totalQuestions = 0,
     this.questions = const [],
+    this.status = 'in-progress',
+    this.messages = const [],
+    this.interviewMode,
+    this.track,
+    this.role,
+    this.mode,
+    this.rounds = const [],
+    this.roundSecondsRemaining,
+    this.roundTimerEnforced = false,
+    this.roundTimerFinished = false,
+    this.holdFor,
+    this.holdCodingQuestions,
+    this.holdCodingMinutes,
+    this.currentQuestion,
+    this.currentDiagram,
   });
 
   final String id;
+  final String status; // in-progress | paused | completed | ...
+  /// Persisted conversation: maps with `role` ("user" | "ai") and `content`.
+  final List<Map<String, dynamic>> messages;
   final int? timeRemaining; // seconds
   final int? duration;
   final int currentIndex;
   final int totalQuestions;
   final List<InterviewQuestion> questions;
 
+  /// The server's authoritative room: job_interview | technical_interview | dsa_interview (older servers: null).
+  final String? interviewMode;
+  final String? track; // dsa | general
+  final String? role;
+
+  /// simulation | coaching (hints are off in simulation).
+  final String? mode;
+  final List<InterviewRound> rounds;
+
+  /// Enforced round timer, when the candidate opted in.
+  final int? roundSecondsRemaining;
+  final bool roundTimerEnforced;
+  final bool roundTimerFinished;
+
+  /// "coding" while the interview waits for its mid-interview coding round.
+  final String? holdFor;
+  final int? holdCodingQuestions;
+  final int? holdCodingMinutes;
+  final InterviewQuestion? currentQuestion;
+
+  /// System-design scene saved for the open question, if any.
+  final Map<String, dynamic>? currentDiagram;
+
+  /// The question to show: the server's current one, else the cached list.
+  InterviewQuestion? get openQuestion =>
+      currentQuestion ?? (questions.isNotEmpty ? questions[currentIndex.clamp(0, questions.length - 1)] : null);
+
+  /// Index of the round the open question belongs to, or -1.
+  int get roundIndex => rounds.indexWhere((r) => currentIndex >= r.start && currentIndex < r.start + r.count);
+
   factory InterviewSession.fromMap(Map<String, dynamic> m) {
     final s = m['session'] is Map ? m['session'] : m;
     final rawQs = (s['questions'] ?? const []) as List;
+    final rawMessages = (s['messages'] is List) ? s['messages'] as List : const [];
+    final rt = s['roundTimer'] is Map ? Map<String, dynamic>.from(s['roundTimer'] as Map) : null;
+    final hold = s['hold'] is Map ? Map<String, dynamic>.from(s['hold'] as Map) : null;
+    final holdCoding = hold != null && hold['coding'] is Map ? Map<String, dynamic>.from(hold['coding'] as Map) : null;
     return InterviewSession(
       id: (s['_id'] ?? s['id'] ?? '').toString(),
+      status: (s['status'] ?? 'in-progress').toString(),
+      messages: rawMessages
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList(),
       timeRemaining: s['timeRemaining'] is num ? (s['timeRemaining'] as num).toInt() : null,
       duration: s['duration'] is num ? (s['duration'] as num).toInt() : null,
       currentIndex: s['currentQuestionIndex'] is num ? (s['currentQuestionIndex'] as num).toInt() : 0,
@@ -200,6 +322,21 @@ class InterviewSession {
           .whereType<Map>()
           .map((e) => InterviewQuestion.fromMap(Map<String, dynamic>.from(e)))
           .toList(),
+      interviewMode: s['interviewMode']?.toString(),
+      track: s['track']?.toString(),
+      role: s['role']?.toString(),
+      mode: s['mode']?.toString(),
+      rounds: (s['rounds'] is List)
+          ? (s['rounds'] as List).whereType<Map>().map((e) => InterviewRound.fromMap(Map<String, dynamic>.from(e))).toList()
+          : const [],
+      roundTimerEnforced: rt != null && rt['enforced'] == true,
+      roundSecondsRemaining: rt != null && rt['secondsRemaining'] is num ? (rt['secondsRemaining'] as num).toInt() : null,
+      roundTimerFinished: rt != null && rt['finished'] == true,
+      holdFor: hold?['for']?.toString(),
+      holdCodingQuestions: holdCoding?['questionCount'] is num ? (holdCoding!['questionCount'] as num).toInt() : null,
+      holdCodingMinutes: holdCoding?['duration'] is num ? (holdCoding!['duration'] as num).toInt() : null,
+      currentQuestion: s['currentQuestion'] is Map ? InterviewQuestion.fromMap(Map<String, dynamic>.from(s['currentQuestion'] as Map)) : null,
+      currentDiagram: s['currentDiagram'] is Map ? Map<String, dynamic>.from(s['currentDiagram'] as Map) : null,
     );
   }
 }

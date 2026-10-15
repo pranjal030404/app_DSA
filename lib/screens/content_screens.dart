@@ -53,15 +53,14 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
             return EmptyState(message: '${snap.error}', onRetry: _reload);
           }
           final items = snap.data ?? const <ResourceItem>[];
-          if (items.isEmpty) {
-            return const EmptyState(message: 'No resources published yet.');
-          }
+          final isDemo = items.any((r) => r.id.startsWith('demo-'));
           return RefreshIndicator(
             onRefresh: () async => _reload(),
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(20),
               children: [
+                if (isDemo) const SampleBanner(),
                 for (final r in items)
                   Card(
                     margin: const EdgeInsets.only(bottom: 10),

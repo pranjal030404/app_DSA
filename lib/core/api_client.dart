@@ -9,9 +9,12 @@ import 'token_store.dart';
 
 /// A failed API call, carrying the server's message when there is one.
 class ApiException implements Exception {
-  ApiException(this.message, {this.statusCode});
+  ApiException(this.message, {this.statusCode, this.code});
   final String message;
   final int? statusCode;
+
+  /// The server's machine-readable reason (e.g. `ROUND_TIME_UP`, `CODING_ROUND_PENDING`), when it sent one.
+  final String? code;
 
   bool get isAuthError => statusCode == 401 || statusCode == 403;
 
@@ -47,13 +50,15 @@ class ApiClient {
     return _send(() async => _http.get(uri, headers: await _headers(json: false)));
   }
 
-  dynamic post(String path, {Object? body, String? cookie}) async {
+  /// [timeout] overrides [kHttpTimeout] for calls that wait on the AI interviewer (a local model can take ~45 s).
+  dynamic post(String path, {Object? body, String? cookie, Duration? timeout}) async {
     final uri = Uri.parse('$kApiBaseUrl$path');
     final headers = await _headers();
     if (cookie != null) headers['Cookie'] = cookie;
     return _send(
       () => _http.post(uri, headers: headers, body: body == null ? null : jsonEncode(body)),
       captureCookie: true,
+      timeout: timeout,
     );
   }
 
@@ -103,10 +108,11 @@ class ApiClient {
     Future<http.Response> Function() request, {
     bool captureCookie = false,
     bool retried = false,
+    Duration? timeout,
   }) async {
     http.Response response;
     try {
-      response = await request().timeout(kHttpTimeout);
+      response = await request().timeout(timeout ?? kHttpTimeout);
     } on TimeoutException {
       throw ApiException('The server took too long to respond.');
     } on SocketException {
@@ -120,7 +126,7 @@ class ApiClient {
     // Session expired → refresh once, then replay the original request.
     if (!retried && _isTokenFailure(response) && !captureCookie) {
       final refreshed = await refreshSession();
-      if (refreshed) return _send(request, captureCookie: captureCookie, retried: true);
+      if (refreshed) return _send(request, captureCookie: captureCookie, retried: true, timeout: timeout);
     }
 
     dynamic decoded;
@@ -135,7 +141,8 @@ class ApiClient {
       final message = (decoded is Map)
           ? (decoded['message'] ?? decoded['error'] ?? 'Request failed (${response.statusCode})')
           : 'Request failed (${response.statusCode})';
-      throw ApiException(message.toString(), statusCode: response.statusCode);
+      final code = decoded is Map && decoded['code'] is String ? decoded['code'] as String : null;
+      throw ApiException(message.toString(), statusCode: response.statusCode, code: code);
     }
     return decoded;
   }
@@ -246,6 +253,20 @@ class ApiClient {
   /// Wraps an already-fetched payload: unwraps `data` when present, then
   /// surfaces `success: false` envelopes that were returned with a 2xx.
   dynamic unwrap(dynamic decoded) => _unwrap(decoded);
+
+  /// Like [unwrap], for endpoints that put their fields beside `success`
+  /// instead of under `data` (the interview API: `{ success, session }`,
+  /// `{ success, response }`, ...). Returns `data` when present, otherwise the
+  /// whole body, and still surfaces `success: false` as an [ApiException].
+  dynamic unwrapOrBody(dynamic decoded) {
+    if (decoded is Map) {
+      if (decoded['success'] == false) {
+        throw ApiException((decoded['message'] ?? 'Request failed').toString());
+      }
+      return decoded.containsKey('data') ? decoded['data'] : decoded;
+    }
+    return decoded;
+  }
 
   String? _extractToken(dynamic decoded) {
     if (decoded is! Map) return null;

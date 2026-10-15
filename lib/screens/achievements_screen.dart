@@ -62,13 +62,16 @@ class AchievementsScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(14),
                       child: Row(
                         children: [
-                          Icon(
-                            a.unlocked ? Icons.emoji_events : Icons.emoji_events_outlined,
-                            color: a.unlocked
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurface.withAlpha(90),
-                            size: 26,
-                          ),
+                          if (a.icon != null && a.icon!.trim().isNotEmpty)
+                            Text(a.icon!, style: const TextStyle(fontSize: 24))
+                          else
+                            Icon(
+                              a.unlocked ? Icons.emoji_events : Icons.emoji_events_outlined,
+                              color: a.unlocked
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurface.withAlpha(90),
+                              size: 26,
+                            ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
