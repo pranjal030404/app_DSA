@@ -79,6 +79,7 @@ class _ConversationalRoomState extends State<ConversationalRoom> with WidgetsBin
   Timer? _ticker;
   DiagramScene _scene = DiagramScene();
   String _boardState = 'saved'; // saved | dirty | saving | error
+  int _boardEdits = 0; // bumped on every edit so a save can tell whether the board changed while it was in flight
 
   @override
   void initState() {
@@ -450,13 +451,18 @@ class _ConversationalRoomState extends State<ConversationalRoom> with WidgetsBin
   Future<bool> _saveBoard() async {
     final s = _s;
     if (s == null) return false;
+    final editsAtStart = _boardEdits;
     setState(() => _boardState = 'saving');
     try {
       final saved = await context.read<InterviewService>().saveDiagram(widget.sessionId, s.currentIndex, _scene.isEmpty ? null : _scene.toMap());
       if (!mounted) return false;
       setState(() {
-        _scene = DiagramScene.fromMap(saved);
-        _boardState = 'saved';
+        if (_boardEdits == editsAtStart) {
+          _scene = DiagramScene.fromMap(saved);
+          _boardState = 'saved';
+        } else {
+          _boardState = 'dirty'; // edited mid-save: keep the newer drawing and stay unsaved
+        }
       });
       return true;
     } catch (e) {
@@ -620,7 +626,10 @@ class _ConversationalRoomState extends State<ConversationalRoom> with WidgetsBin
                         key: ValueKey('board-${s.currentIndex}'),
                         scene: _scene,
                         saveState: _boardState,
-                        onChanged: () => setState(() => _boardState = 'dirty'),
+                        onChanged: () => setState(() {
+                          _boardEdits++;
+                          _boardState = 'dirty';
+                        }),
                         onSave: _saveBoard,
                       ),
                     ),
